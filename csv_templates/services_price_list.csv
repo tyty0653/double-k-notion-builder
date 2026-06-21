@@ -1,0 +1,2 @@
+﻿Service Name,Department,Category,Base Price,Min Price,Price Type,Unit,Active,Need Boss Approval,AI Quotable,AI Can Send Final Quote,Max Auto Quote Amount,Required Questions,AI Handover Rule,Customer Description,Internal Notes
+Sample Service,,,0,0,0,,TRUE,FALSE,FALSE,FALSE,0,,,,

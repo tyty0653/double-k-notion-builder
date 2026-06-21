@@ -1,0 +1,2 @@
+﻿Quote ID,Original Quote ID,Quote Type,Customer,Site,Status,Quote Date,Valid Until,Approval Status,Quote Version,Source,Import Status,Discount Amount,Discount Reason,Final Approved Amount,Notes
+SAMPLE-EXISTING-QUOTE-001,SAMPLE-ORIGINAL-001,,,,Draft,2026-01-01,2026-01-01,,,,Raw,0,,0,Example only; replace with reviewed business data.
