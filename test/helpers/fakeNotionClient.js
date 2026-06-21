@@ -3,6 +3,7 @@ export class FakeNotionClient {
     this.calls = [];
     this.objects = new Map();
     this.rows = new Map();
+    this.viewObjects = new Map();
     this.counter = 0;
     this.failViewCreation = false;
 
@@ -57,7 +58,22 @@ export class FakeNotionClient {
     this.views = {
       create: async (args) => this.#record("views.create", args, () => {
         if (this.failViewCreation) throw Object.assign(new Error("views unavailable"), { status: 400 });
-        return { object: "view", id: this.#id("view"), ...args };
+        const object = { object: "view", id: this.#id("view"), ...args };
+        this.viewObjects.set(object.id, object);
+        return object;
+      }),
+      list: async (args) => this.#record("views.list", args, () => ({
+        object: "list",
+        results: [...this.viewObjects.values()]
+          .filter((view) => view.database_id === args.database_id || view.data_source_id === args.data_source_id)
+          .map(({ id }) => ({ object: "view", id })),
+        has_more: false,
+        next_cursor: null,
+      })),
+      retrieve: async ({ view_id }) => this.#record("views.retrieve", { view_id }, () => {
+        const value = this.viewObjects.get(view_id);
+        if (!value) throw Object.assign(new Error("not found"), { status: 404 });
+        return value;
       }),
     };
     this.search = async (args) => this.#record("search", args, () => ({
