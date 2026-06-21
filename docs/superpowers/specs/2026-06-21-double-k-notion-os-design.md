@@ -60,6 +60,7 @@ Focused modules consume the registry:
 - Page creation consumes page and dashboard definitions.
 - Database creation creates each Notion database and its initial data source with non-relation properties.
 - Relation creation updates data sources after every target data source exists.
+- View creation may add simple database-native views on a best-effort basis; dashboard-linked views remain a documented manual step.
 - Documentation creation publishes local Markdown guides as readable Notion pages.
 - CSV generation creates Excel-friendly templates locally.
 - Sample seeding creates related fictional records using stable seed keys.
@@ -80,10 +81,12 @@ double-k-notion-builder/
 |   |-- createPages.js
 |   |-- createDatabases.js
 |   |-- createRelations.js
+|   |-- createViews.js
 |   |-- createDocumentation.js
 |   |-- seedSampleData.js
 |   |-- generateCsvTemplates.js
 |   |-- stateStore.js
+|   |-- requestPolicy.js
 |   |-- quoteRules.js
 |   |-- aiSafetyRules.js
 |   `-- utils.js
@@ -631,13 +634,18 @@ The API-created dashboards contain a title, purpose callout, section headings, d
    - Resolve target data-source IDs from state.
    - Add only missing relation properties.
    - Never delete or replace unrelated user-created properties.
-6. **Create documentation pages**
+6. **Create simple views (best effort)**
+   - SDK 5.22.0 exposes the current `views.create` endpoint for data-source views.
+   - Create only a small registry-defined set of useful table views when required property IDs can be resolved safely.
+   - Report unsupported or failed view operations without failing the core builder.
+   - Do not automate linked database views embedded in dashboard pages; those remain manual.
+7. **Create documentation pages**
    - Convert supported Markdown structures to Notion blocks.
    - Update only builder-managed page content when a safe marker is present; otherwise preserve the page and report a manual action.
-7. **Optional seed**
+8. **Optional seed**
    - Run only for the `seed` command or `setup --seed`.
    - Create records in dependency order and resolve relations through seed keys.
-8. **Report**
+9. **Report**
    - Print created, reused, skipped, and manual-action counts.
    - Print the state-file location and manual dashboard guide location.
 
@@ -730,6 +738,7 @@ Quote-number behavior is enforced both in code helpers and documentation:
 8. Duplicate detection does not merge, delete, or overwrite records.
 9. `Quote Year` and `Sequence No.` are optional helper fields and never replace Quote ID.
 10. Final-quote workflows require boss approval in v1 regardless of future AI fields.
+11. V1 imports stop at Excel Import Staging. The builder never converts staged rows into final Customers, Sites, or Quotations; staff performs that mapping only after manual review.
 
 ## 14. AI Safety Rules
 
@@ -835,6 +844,7 @@ The builder creates the data model and dashboard shells. The manual guide explai
 - Confirm relation display names and reciprocal behavior.
 - Confirm the Quote Items subtotal formula in the Notion UI.
 - Configure people assignments after workspace users are known.
+- Assign Boss, Manager, Admin/Office staff, PIC, Prepared By, Approved By, and Technician/Staff manually after setup.
 - Review sharing and access permissions by role.
 - Clean and map staged Excel rows manually before creating final records.
 - Review duplicate and missing quotation IDs.
@@ -846,8 +856,11 @@ The builder must report manual steps without treating them as setup failures.
 ## 19. Error Handling and Safety
 
 - Validate all registry content before live writes.
+- Construct the official client with both `auth` and explicit `notionVersion: "2026-03-11"`; never rely on the SDK default version.
 - Use official SDK error types and surface actionable Notion error codes.
-- Let SDK 5.22.0 handle its supported rate-limit and transient retries.
+- Configure SDK 5.22.0 retries for its supported 429 and transient-server behavior.
+- Add a small retry policy around idempotent reads for 429, 5xx, and temporary network failures with bounded exponential backoff and jitter.
+- Do not generically retry create/update writes after ambiguous 5xx or network failures because the first request may have succeeded. Recover through state and exact-object discovery on the next run.
 - Persist state after each successful create so partial runs can resume.
 - Stop relation creation when a target data-source ID is missing.
 - Continue independent documentation or seed records only when doing so cannot corrupt dependencies.
@@ -868,7 +881,10 @@ Required coverage:
 - Missing and duplicate imported quote IDs receive the required review statuses.
 - AI eligibility returns final-send eligibility only when every strict condition passes.
 - v1 orchestration never invokes a sender.
-- Orchestration order is validate, pages, databases, relations, docs, optional seed.
+- Orchestration order is validate, pages, databases, relations, best-effort views, docs, optional seed.
+- Client initialization always sends Notion API version `2026-03-11`.
+- Best-effort simple-view failures are reported but do not fail core setup.
+- Idempotent reads retry only the allowed transient failures; ambiguous writes are not generically retried.
 - Dry-run makes zero Notion calls and zero filesystem writes.
 - Re-running setup reuses known IDs and does not duplicate objects.
 - Stale and ambiguous state paths produce explicit manual-review results.
