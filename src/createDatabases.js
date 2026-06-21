@@ -43,21 +43,28 @@ export async function createDatabases({ client, schema, state, persist = async (
     if (!parentPageId) throw new Error(`${definition.key}: missing parent page state`);
     const search = await withReadRetry(() => client.search({
       query: definition.title,
-      filter: { property: "object", value: "database" },
+      filter: { property: "object", value: "data_source" },
       page_size: 100,
     }));
-    const matches = search.results.filter((candidate) =>
-      databaseTitle(candidate) === definition.title
-      && candidate.parent?.page_id === parentPageId
-      && !candidate.in_trash);
+    const matches = [];
+    for (const candidate of search.results) {
+      if (databaseTitle(candidate) !== definition.title || candidate.in_trash) continue;
+      const databaseId = candidate.parent?.database_id;
+      if (!databaseId) continue;
+      const container = await retrieveDatabase(client, databaseId);
+      if (container?.parent?.page_id === parentPageId) {
+        matches.push({ database: container, dataSource: candidate });
+      }
+    }
     if (matches.length > 1) {
       result.manualActions.push(`Multiple databases named "${definition.title}" exist under the expected page.`);
       continue;
     }
     if (matches.length === 1) {
-      const dataSourceId = matches[0].data_sources?.[0]?.id;
-      if (!dataSourceId) throw new Error(`${definition.key}: existing database has no data source`);
-      state.databases[definition.key] = { databaseId: matches[0].id, dataSourceId };
+      state.databases[definition.key] = {
+        databaseId: matches[0].database.id,
+        dataSourceId: matches[0].dataSource.id,
+      };
       await persist(state);
       result.reused += 1;
       continue;
