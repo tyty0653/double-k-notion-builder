@@ -34,3 +34,13 @@ test("documentation markdown converts to bounded Notion blocks", () => {
   const blocks = markdownToBlocks("# Guide\n\n- First\n\nPlain text");
   assert.deepEqual(blocks.map(({ type }) => type), ["heading_1", "bulleted_list_item", "paragraph"]);
 });
+
+test("operator docs explain automated linked views and remaining manual checks", () => {
+  const operatorDocs = ["README.md", "docs/setup-guide.md", "docs/manual-dashboard-guide.md"]
+    .map((file) => fs.readFileSync(file, "utf8")).join("\n");
+  for (const phrase of [
+    "15 automated linked views", "Quotation Centre", "Boss Dashboard",
+    "conflicting manual view", "not changed", "column widths",
+    "visual verification", "npm run setup",
+  ]) assert.ok(operatorDocs.includes(phrase), phrase);
+});
