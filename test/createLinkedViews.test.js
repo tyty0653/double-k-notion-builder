@@ -67,3 +67,113 @@ test("board view groups by the resolved select property ID", async () => {
     sort: { type: "manual" }, hide_empty_groups: true,
   });
 });
+
+test("builder-managed matching views are reused without writes", async () => {
+  const context = await fixture();
+  await createLinkedViews(context);
+  context.client.calls.length = 0;
+  const result = await createLinkedViews(context);
+  assert.equal(result.reused, 1);
+  assert.equal(context.client.callsFor("views.create").length, 0);
+  assert.equal(context.client.callsFor("views.update").length, 0);
+});
+
+test("builder-managed changed views are updated rather than duplicated", async () => {
+  const context = await fixture();
+  await createLinkedViews(context);
+  const view = context.client.viewObjects.get(context.state.linkedViews.approval.viewId);
+  view.filter = { property: "Status", select: { equals: "Draft" } };
+  context.client.calls.length = 0;
+  const result = await createLinkedViews(context);
+  assert.equal(result.reused, 1);
+  assert.equal(context.client.callsFor("views.create").length, 0);
+  assert.equal(context.client.callsFor("views.update").length, 1);
+  assert.deepEqual(context.client.callsFor("views.update")[0].args.filter, context.schema.linkedViews[0].filter);
+});
+
+test("matching untracked manual view is adopted without changing it", async () => {
+  const context = await fixture();
+  await createLinkedViews(context);
+  const existingId = context.state.linkedViews.approval.viewId;
+  context.state.linkedViews = {};
+  context.client.calls.length = 0;
+  const result = await createLinkedViews(context);
+  assert.equal(result.reused, 1);
+  assert.equal(context.state.linkedViews.approval.viewId, existingId);
+  assert.equal(context.client.callsFor("views.create").length, 0);
+  assert.equal(context.client.callsFor("views.update").length, 0);
+});
+
+test("conflicting untracked manual view is reported without overwrite or duplicate", async () => {
+  const context = await fixture();
+  await createLinkedViews(context);
+  const existing = context.client.viewObjects.get(context.state.linkedViews.approval.viewId);
+  existing.filter = { property: "Status", select: { equals: "Draft" } };
+  context.state.linkedViews = {};
+  context.client.calls.length = 0;
+  const result = await createLinkedViews(context);
+  assert.match(result.manualActions[0], /conflicts/);
+  assert.equal(context.client.callsFor("views.create").length, 0);
+  assert.equal(context.client.callsFor("views.update").length, 0);
+});
+
+test("multiple matching manual views are reported as ambiguous", async () => {
+  const context = await fixture();
+  await createLinkedViews(context);
+  const existing = context.client.viewObjects.get(context.state.linkedViews.approval.viewId);
+  context.client.seedView({ ...structuredClone(existing), id: "duplicate-view" });
+  context.state.linkedViews = {};
+  context.client.calls.length = 0;
+  const result = await createLinkedViews(context);
+  assert.match(result.manualActions[0], /Multiple linked views/);
+  assert.equal(context.client.callsFor("views.create").length, 0);
+  assert.equal(context.client.callsFor("views.update").length, 0);
+});
+
+test("missing or ambiguous headings never cause fallback placement", async () => {
+  const missing = await fixture({ heading: "Different Heading" });
+  missing.schema.linkedViews[0].heading = "Expected Heading";
+  const missingResult = await createLinkedViews(missing);
+  assert.match(missingResult.manualActions[0], /expected exactly one heading/);
+  assert.equal(missing.client.callsFor("views.create").length, 0);
+
+  const ambiguous = await fixture();
+  const pageId = ambiguous.state.pages.dashboard;
+  ambiguous.client.children.get(pageId).push(structuredClone(ambiguous.client.children.get(pageId)[0]));
+  const ambiguousResult = await createLinkedViews(ambiguous);
+  assert.match(ambiguousResult.manualActions[0], /expected exactly one heading/);
+  assert.equal(ambiguous.client.callsFor("views.create").length, 0);
+});
+
+test("linked view API failures are non-fatal manual actions", async () => {
+  const context = await fixture();
+  context.client.failViewCreation = true;
+  const result = await createLinkedViews(context);
+  assert.equal(result.created, 0);
+  assert.match(result.manualActions[0], /manual setup/);
+});
+
+test("builder-managed update failures are non-fatal manual actions", async () => {
+  const context = await fixture();
+  await createLinkedViews(context);
+  context.client.viewObjects.get(context.state.linkedViews.approval.viewId).filter = null;
+  context.client.failViewUpdate = true;
+  const result = await createLinkedViews(context);
+  assert.equal(result.reused, 0);
+  assert.match(result.manualActions[0], /manual setup/);
+  assert.equal(context.client.callsFor("views.create").length, 1);
+});
+
+test("same-named linked view on another page is ignored", async () => {
+  const context = await fixture();
+  const otherDatabase = context.client.seedObject({ object: "database", id: "other-linked-db", parent: { type: "page_id", page_id: "other-page" }, in_trash: false });
+  context.client.seedView({
+    object: "view", id: "other-view", name: "Need Boss Approval", type: "table",
+    parent: { type: "database_id", database_id: otherDatabase.id }, data_source_id: "quotes-ds",
+    filter: context.schema.linkedViews[0].filter, sorts: context.schema.linkedViews[0].sorts,
+    configuration: { type: "table", properties: [] },
+  });
+  const result = await createLinkedViews(context);
+  assert.equal(result.created, 1);
+  assert.equal(context.client.callsFor("views.create").length, 1);
+});
