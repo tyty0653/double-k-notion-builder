@@ -6,6 +6,7 @@ import { createPages } from "./createPages.js";
 import { createDatabases } from "./createDatabases.js";
 import { createRelations } from "./createRelations.js";
 import { createViews } from "./createViews.js";
+import { createLinkedViews } from "./createLinkedViews.js";
 import { createDocumentationPages } from "./createDocumentation.js";
 import { seedSampleData } from "./seedSampleData.js";
 import { generateCsvTemplates } from "./generateCsvTemplates.js";
@@ -35,12 +36,14 @@ export function createDryRunPlan(schema, { includeSeed = false } = {}) {
     databases: schema.databases.length,
     relations,
     views: schema.views.length,
+    linkedViews: (schema.linkedViews ?? []).length,
     documentationPages: 11,
     seedRecords,
     actions: [
       ...schema.pages.map(({ key }) => ({ id: `dryrun:page:${key}`, action: "create-or-reuse page" })),
       ...schema.databases.map(({ key }) => ({ id: `dryrun:database:${key}`, action: "create-or-reuse database/data source" })),
       ...schema.views.map(({ key }) => ({ id: `dryrun:view:${key}`, action: "best-effort simple view" })),
+      ...(schema.linkedViews ?? []).map(({ key }) => ({ id: `dryrun:linked-view:${key}`, action: "create-or-reuse linked dashboard view" })),
     ],
   };
 }
@@ -61,7 +64,7 @@ export async function orchestrate({ options, context, actions }) {
 
   await run("validate");
   if (options.command === "setup") {
-    for (const name of ["pages", "databases", "relations", "views", "docs"]) await run(name);
+    for (const name of ["pages", "databases", "relations", "views", "linkedViews", "docs"]) await run(name);
     if (options.seed) await run("seed");
   } else if (options.command === "seed") {
     await run("seed");
@@ -84,6 +87,7 @@ function createActions(context, output) {
     databases: () => createDatabases(context),
     relations: () => createRelations(context),
     views: () => createViews(context),
+    linkedViews: () => createLinkedViews(context),
     docs: () => createDocumentationPages({
       ...context,
       parentPageId: context.state.pages.setupGuide ?? context.parentPageId,
@@ -103,6 +107,7 @@ function freshState(parentPageId) {
     parentPageId,
     pages: {},
     databases: {},
+    linkedViews: {},
     seeds: {},
   };
 }

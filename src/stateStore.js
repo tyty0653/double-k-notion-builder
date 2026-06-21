@@ -7,12 +7,24 @@ const ALLOWED_KEYS = [
   "parentPageId",
   "pages",
   "databases",
+  "linkedViews",
   "seeds",
 ];
+const LINKED_VIEW_ID_KEYS = ["viewId", "linkedDatabaseId", "targetPageId", "dataSourceId"];
+
+function sanitizeLinkedViews(entries = {}) {
+  return Object.fromEntries(Object.entries(entries).map(([key, value]) => [
+    key,
+    Object.fromEntries(LINKED_VIEW_ID_KEYS
+      .filter((idKey) => typeof value?.[idKey] === "string")
+      .map((idKey) => [idKey, value[idKey]])),
+  ]));
+}
 
 export function sanitizeState(state) {
   return Object.fromEntries(
-    ALLOWED_KEYS.filter((key) => state[key] !== undefined).map((key) => [key, state[key]]),
+    ALLOWED_KEYS.filter((key) => state[key] !== undefined)
+      .map((key) => [key, key === "linkedViews" ? sanitizeLinkedViews(state[key]) : state[key]]),
   );
 }
 
