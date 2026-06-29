@@ -5,6 +5,7 @@ import {
   createQuoteId,
   preserveOriginalQuoteNumber,
 } from "../src/quoteRules.js";
+import { databaseByKey, systemSchema } from "../src/schemaRegistry.js";
 
 test("duplicate checks never rewrite displayed quote numbers", () => {
   assert.deepEqual(classifyQuoteIds([" DK-001 ", "dk-001", ""]), [
@@ -17,4 +18,12 @@ test("duplicate checks never rewrite displayed quote numbers", () => {
 test("original quote numbers are preserved and no generator exists", () => {
   assert.equal(preserveOriginalQuoteNumber(" 001/A "), " 001/A ");
   assert.equal(createQuoteId(), undefined);
+});
+
+test("linked views display Quote ID without generating or deriving it", () => {
+  assert.deepEqual(databaseByKey("quotations").properties["Quote ID"], { type: "title" });
+  assert.equal(createQuoteId(), undefined);
+  assert.ok(systemSchema.linkedViews.some(({ visibleProperties }) => visibleProperties.includes("Quote ID")));
+  assert.ok(systemSchema.linkedViews.every(({ filter, sorts = [] }) =>
+    !JSON.stringify({ filter, sorts }).includes('"Quote ID"')));
 });

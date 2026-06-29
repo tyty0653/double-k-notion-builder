@@ -21,6 +21,9 @@ const database = (key, titleText, parentPageKey, purpose, properties) => ({
   purpose,
   properties: { ...properties, ...timestamps },
 });
+const linkedView = (key, pageKey, heading, databaseKey, name, options = {}) => ({
+  key, pageKey, heading, databaseKey, name, type: "table", ...options,
+});
 
 const pages = [
   page("bossDashboard", "Boss Dashboard", ["Pending Boss Approval Quotes", "Today Retail Jobs", "Active Projects", "Outstanding Payments", "Quotes to Follow Up", "Expiring Quotes", "Recent Accepted Quotes", "Project Stage Overview", "Variation Orders Pending Approval", "Recent Imported Excel Records Needing Review", "Quick Links", "Boss Approval Quick Guide"]),
@@ -250,6 +253,26 @@ const databases = [
   }),
 ];
 
+const quotationProperties = ["Quote ID", "Quote Type", "Customer", "Site", "Status", "Approval Status", "Quote Date", "Valid Until", "PIC", "Prepared By", "Approved By", "Final Approved Amount"];
+const compactQuoteProperties = ["Quote ID", "Quote Type", "Customer", "Site", "Status", "Quote Date", "Valid Until", "PIC", "Final Approved Amount"];
+const linkedViews = [
+  linkedView("quotation-centre-retail", "quotationCentre", "Retail Quotations", "quotations", "Retail Quotations", { filter: { property: "Quote Type", select: { equals: "Retail" } }, sorts: [{ property: "Quote Date", direction: "descending" }], visibleProperties: quotationProperties }),
+  linkedView("quotation-centre-project", "quotationCentre", "Project Quotations", "quotations", "Project Quotations", { filter: { property: "Quote Type", select: { equals: "Project" } }, sorts: [{ property: "Quote Date", direction: "descending" }], visibleProperties: quotationProperties }),
+  linkedView("quotation-centre-approval", "quotationCentre", "Need Boss Approval", "quotations", "Need Boss Approval", { filter: { property: "Status", select: { equals: "Need Boss Approval" } }, sorts: [{ property: "Quote Date", direction: "ascending" }], visibleProperties: quotationProperties }),
+  linkedView("quotation-centre-approved", "quotationCentre", "Boss Approved", "quotations", "Boss Approved", { filter: { property: "Status", select: { equals: "Boss Approved" } }, sorts: [{ property: "Last Edited", direction: "descending" }], visibleProperties: quotationProperties }),
+  linkedView("quotation-centre-follow-up", "quotationCentre", "Follow Up", "quotations", "Follow Up", { filter: { property: "Status", select: { equals: "Follow Up" } }, sorts: [{ property: "Valid Until", direction: "ascending" }], visibleProperties: quotationProperties }),
+  linkedView("boss-pending-approval", "bossDashboard", "Pending Boss Approval Quotes", "quotations", "Pending Boss Approval Quotes", { filter: { property: "Status", select: { equals: "Need Boss Approval" } }, sorts: [{ property: "Quote Date", direction: "ascending" }], visibleProperties: ["Quote ID", "Quote Type", "Customer", "Site", "Status", "Approval Status", "Quote Date", "Valid Until", "PIC", "Prepared By", "Approved By", "Discount Amount", "Requested By", "Final Approved Amount"] }),
+  linkedView("boss-today-retail-jobs", "bossDashboard", "Today Retail Jobs", "retailJobs", "Today Retail Jobs", { filter: { and: [{ property: "Appointment Date", date: { equals: "today" } }, { property: "Job Status", select: { does_not_equal: "Cancelled" } }] }, sorts: [{ property: "Appointment Date", direction: "ascending" }], visibleProperties: ["Job ID", "Customer", "Site", "Service Type", "Job Status", "Appointment Date", "Technician / Staff", "Payment Status"] }),
+  linkedView("boss-active-projects", "bossDashboard", "Active Projects", "projects", "Active Projects", { filter: { property: "Project Stage", select: { equals: ["Confirmed", "In Progress"] } }, sorts: [{ property: "Target Completion Date", direction: "ascending" }], visibleProperties: ["Project Name", "Project Code", "Customer", "Site", "Project Stage", "Project Value", "PIC", "Target Completion Date"] }),
+  linkedView("boss-outstanding-payments", "bossDashboard", "Outstanding Payments", "payments", "Outstanding Payments", { filter: { property: "Payment Status", select: { equals: ["Unpaid", "Deposit Paid", "Partial Paid", "Overdue"] } }, sorts: [{ property: "Due Date", direction: "ascending" }], visibleProperties: ["Payment Record", "Customer", "Quote", "Retail Job", "Project", "Payment Type", "Amount", "Payment Status", "Due Date", "Paid Date"] }),
+  linkedView("boss-quotes-follow-up", "bossDashboard", "Quotes to Follow Up", "quotations", "Quotes to Follow Up", { filter: { property: "Status", select: { equals: "Follow Up" } }, sorts: [{ property: "Valid Until", direction: "ascending" }], visibleProperties: compactQuoteProperties }),
+  linkedView("boss-expiring-quotes", "bossDashboard", "Expiring Quotes", "quotations", "Expiring Quotes", { filter: { and: [{ property: "Valid Until", date: { next_week: {} } }, { property: "Status", select: { equals: ["Sent", "Follow Up"] } }] }, sorts: [{ property: "Valid Until", direction: "ascending" }], visibleProperties: compactQuoteProperties }),
+  linkedView("boss-recent-accepted", "bossDashboard", "Recent Accepted Quotes", "quotations", "Recent Accepted Quotes", { filter: { property: "Status", select: { equals: "Accepted" } }, sorts: [{ property: "Last Edited", direction: "descending" }], visibleProperties: compactQuoteProperties }),
+  linkedView("boss-project-stage-overview", "bossDashboard", "Project Stage Overview", "projects", "Project Stage Overview", { type: "board", filter: { property: "Project Stage", select: { does_not_equal: ["Completed", "Cancelled"] } }, sorts: [{ property: "Target Completion Date", direction: "ascending" }], visibleProperties: ["Project Name", "Project Code", "Customer", "Site", "Project Stage", "Project Value", "PIC", "Target Completion Date"], groupBy: { property: "Project Stage", type: "select", groupBy: "option" } }),
+  linkedView("boss-variation-approval", "bossDashboard", "Variation Orders Pending Approval", "variationOrders", "Variation Orders Pending Approval", { filter: { property: "Status", select: { equals: "Need Boss Approval" } }, sorts: [{ property: "Created Date", direction: "ascending" }], visibleProperties: ["VO ID", "Project", "Description", "Amount", "Status", "Approved By", "Approved Date"] }),
+  linkedView("boss-import-review", "bossDashboard", "Recent Imported Excel Records Needing Review", "excelImportStaging", "Recent Imported Excel Records Needing Review", { filter: { or: [{ property: "Quote ID Status", select: { equals: ["Missing Quote ID", "Duplicate Quote ID", "Needs Manual Review"] } }, { property: "Import Status", select: { equals: ["Raw", "Needs Cleaning"] } }] }, sorts: [{ property: "Created Date", direction: "descending" }], visibleProperties: ["Import Row ID", "Original Quote Number", "Original Customer Name", "Original Date", "Original Amount", "Quote ID Status", "Import Status", "Cleaning Notes"] }),
+];
+
 const csvTemplates = [
   ["customers", "customers.csv", ["Customer Name", "Customer Type", "Phone / WhatsApp", "Email", "Company Name", "Source", "Department", "Status", "Notes"]],
   ["sites", "sites.csv", ["Site Name", "Customer", "Address", "Area", "Property Type", "Access Notes", "Parking / Guardhouse Notes", "Aircond Count", "Notes"]],
@@ -357,6 +380,7 @@ export const systemSchema = {
     { key: "jobs-upcoming", databaseKey: "retailJobs", name: "Upcoming Jobs", type: "table", sorts: [{ property: "Appointment Date", direction: "ascending" }] },
     { key: "projects-active", databaseKey: "projects", name: "Active Projects", type: "table" },
   ],
+  linkedViews,
   csvTemplates,
   seeds,
 };
@@ -372,6 +396,24 @@ export function validateSchema(schema) {
 
   if (pageKeys.size !== schema.pages.length) errors.push("Duplicate page key");
   if (databaseKeys.size !== schema.databases.length) errors.push("Duplicate database key");
+
+  const filterProperties = (filter) => {
+    if (!filter) return [];
+    if (filter.property) return [filter.property];
+    return [...(filter.and ?? []), ...(filter.or ?? [])].flatMap(filterProperties);
+  };
+  const linkedKeys = new Set((schema.linkedViews ?? []).map(({ key }) => key));
+  if (linkedKeys.size !== (schema.linkedViews ?? []).length) errors.push("Duplicate linked view key");
+  for (const view of schema.linkedViews ?? []) {
+    const targetPage = schema.pages.find(({ key }) => key === view.pageKey);
+    const targetDatabase = schema.databases.find(({ key }) => key === view.databaseKey);
+    if (!targetPage) errors.push(`${view.key}: invalid linked view page`);
+    if (targetPage && !(targetPage.sections ?? []).includes(view.heading)) errors.push(`${view.key}: invalid linked view heading`);
+    if (!targetDatabase) errors.push(`${view.key}: invalid linked view database`);
+    const referenced = [...(view.visibleProperties ?? []), ...(view.sorts ?? []).map(({ property }) => property), ...filterProperties(view.filter), ...(view.groupBy ? [view.groupBy.property] : [])];
+    for (const name of referenced) if (targetDatabase && !targetDatabase.properties[name]) errors.push(`${view.key}: invalid property ${name}`);
+    if (view.type === "board" && !view.groupBy) errors.push(`${view.key}: board requires groupBy`);
+  }
 
   for (const entry of schema.databases) {
     if (!pageKeys.has(entry.parentPageKey)) errors.push(`${entry.key}: invalid parent page`);
