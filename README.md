@@ -17,9 +17,11 @@ This Node.js project creates the quote-centered foundation of Double K OS beneat
 5. Copy `.env.example` to `.env` and fill both values. Never commit `.env`.
 
 ```env
-NOTION_TOKEN=your_internal_integration_secret
-NOTION_PARENT_PAGE_ID=your_parent_page_id
+NOTION_TOKEN=
+NOTION_PARENT_PAGE_ID=
 ```
+
+Paste the token and parent page ID after the `=` signs only in your local `.env` file.
 
 ## Install and run
 
