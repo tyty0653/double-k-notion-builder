@@ -858,7 +858,7 @@ Run:
 ```powershell
 git diff --check
 git status --short
-git grep -n -E "NOTION_TOKEN=.+|secret_[A-Za-z0-9]|ntn_[A-Za-z0-9]" -- . ":(exclude)package-lock.json"
+git grep -n -E "<token-or-notion-secret-pattern>" -- . ":(exclude)package-lock.json"
 git check-ignore -v .env generated/notion-state.json .worktrees/
 ```
 
